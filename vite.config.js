@@ -45,10 +45,25 @@ function tabFiles() {
   }
 }
 
+// alphaTab の描画用ワーカーをまとめるとき、import.meta.url を使う箇所で警告が出る。
+// その箇所は try/catch で囲まれた任意の処理（値が空でも動く）なので、alphaTab 由来のこの警告だけ無視する。
+const ignoreAlphaTabImportMeta = (warning, defaultHandler) => {
+  if (warning.code === 'EMPTY_IMPORT_META' && /alphatab/i.test(warning.id ?? warning.message ?? '')) return
+  defaultHandler(warning)
+}
+
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, isPreview }) => ({
   plugins: [react(), alphaTab(), tabFiles()],
-  // 公開用ビルドのときだけ、GitHub Pages のパスを付ける（公開時は --base で上書きされる）。
-  // 開発中に付けると、alphaTab の描画用ワーカーが読み込めずエラーになる。
-  base: command === 'build' ? '/music/' : '/',
+  build: {
+    rolldownOptions: { onwarn: ignoreAlphaTabImportMeta },
+    // alphaTab（楽譜の描画エンジン）は本体だけで約1.4MBあり、警告の標準値(500KB)を超える
+    chunkSizeWarningLimit: 2500,
+  },
+  worker: {
+    rolldownOptions: { onwarn: ignoreAlphaTabImportMeta },
+  },
+  // 公開用ビルドと、その確認用の preview のときだけ、GitHub Pages のパスを付ける（公開時は --base で上書きされる）。
+  // 開発中（npm run dev）に付けると、alphaTab の描画用ワーカーが読み込めずエラーになる。
+  base: command === 'build' || isPreview ? '/music/' : '/',
 }))
