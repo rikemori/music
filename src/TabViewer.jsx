@@ -26,7 +26,11 @@ function TabViewer({ score, trackIndexes, kind }) {
   const [busy, setBusy] = useState(true)
 
   useEffect(() => {
-    const api = new alphaTab.AlphaTabApi(hostRef.current, SETTINGS)
+    const isPhone = window.matchMedia('(max-width: 560px)').matches
+    const api = new alphaTab.AlphaTabApi(hostRef.current, {
+      ...SETTINGS,
+      display: { ...SETTINGS.display, scale: isPhone ? 0.8 : SETTINGS.display.scale },
+    })
     api.renderStarted.on(() => setBusy(true))
     api.renderFinished.on(() => setBusy(false))
     apiRef.current = api

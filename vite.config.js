@@ -46,6 +46,9 @@ function tabFiles() {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react(), alphaTab(), tabFiles()],
-})
+  // 公開用ビルドのときだけ、GitHub Pages のパスを付ける（公開時は --base で上書きされる）。
+  // 開発中に付けると、alphaTab の描画用ワーカーが読み込めずエラーになる。
+  base: command === 'build' ? '/music/' : '/',
+}))

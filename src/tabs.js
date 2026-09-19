@@ -215,6 +215,26 @@ export function extractLyricLines(score) {
 
 const headerHidden = new WeakSet()
 const positioned = new WeakSet()
+const restsHidden = new WeakSet()
+
+// 声が複数に分かれているとき、2番目以降の声には休符が大量に入っていて、
+// 1番目の声の音符と同じ位置に重なって描かれてしまう。2番目以降の休符は、色を透明にして見えなくする。
+// （1番目の声の休符は、本当の無音を表すのでそのまま描く）
+function hideSecondaryRests(track) {
+  const { BeatStyle, BeatSubElement, Color } = alphaTab.model
+  for (const staff of track.staves) {
+    for (const bar of staff.bars) {
+      bar.voices.forEach((voice, voiceIndex) => {
+        if (voiceIndex === 0) return
+        for (const beat of voice.beats) {
+          if (!beat.isRest) continue
+          beat.style = beat.style ?? new BeatStyle()
+          beat.style.colors.set(BeatSubElement.GuitarTabRests, new Color(0, 0, 0, 0))
+        }
+      })
+    }
+  }
+}
 
 // ファイル由来のタイトル・作者などのヘッダーは、ページ側で表示するので非表示にする
 function hideScoreHeader(score) {
@@ -237,6 +257,10 @@ export function prepareTracks(score, indexes, kind) {
     if (positioned.has(track)) continue
     positioned.add(track)
     if (!hasTabData(track)) assignPositions(track, kind)
+    if (!restsHidden.has(track)) {
+      restsHidden.add(track)
+      hideSecondaryRests(track)
+    }
   }
 
   score.finish(new alphaTab.Settings())

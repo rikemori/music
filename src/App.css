@@ -169,6 +169,11 @@
   align-items: start;
 }
 
+/* 音の多い小節が潰れないよう、TABには最低幅を確保する（足りない画面では枠の中で横スクロール） */
+.tab-host {
+  min-width: 640px;
+}
+
 .score-head {
   display: flex;
   flex-wrap: wrap;
@@ -193,6 +198,24 @@
 .switch {
   display: flex;
   gap: 28px;
+}
+
+/* 歌詞の表示／非表示ボタン（狭い画面でTABを広く見たいとき用。広い画面では出さない） */
+.lyrics-toggle {
+  display: none;
+  padding: 4px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.lyrics-toggle[aria-pressed='true'] {
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 .switch button {
@@ -281,10 +304,6 @@
 
 .tab-view {
   min-height: 200px;
-}
-
-.tab-host {
-  min-width: 0;
 }
 
 .file-note {
@@ -416,22 +435,84 @@ label input[type='file'] {
     padding: 56px 0 48px;
   }
 
+  /* 歌詞は画面が狭くても、TABの右横に置く */
   .workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) clamp(110px, 24vw, 240px);
+    gap: 16px;
   }
 
-  .lyrics {
-    position: static;
-    max-height: none;
+  .workspace.no-lyrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lyrics-toggle {
+    display: inline-block;
+    order: 2;
   }
 }
 
 @media (max-width: 560px) {
   .page {
-    padding: 0 18px;
+    padding: 0 12px;
+  }
+
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) 112px;
+    gap: 10px;
+  }
+
+  .workspace.no-lyrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tab-host {
+    min-width: 560px;
   }
 
   .paper {
-    padding: 18px 14px 14px;
+    min-height: 240px;
+    padding: 12px 8px 10px;
+    border-radius: 14px;
+  }
+
+  .score h2 {
+    font-size: 28px;
+  }
+
+  .switch {
+    gap: 20px;
+  }
+
+  .lyrics {
+    top: 12px;
+    max-height: calc(100svh - 24px);
+    padding: 12px 12px 14px;
+    border-radius: 14px;
+  }
+
+  .lyrics h2 {
+    font-size: 22px;
+  }
+
+  .lyrics-note {
+    display: none;
+  }
+
+  .lyric-lines {
+    margin-top: 10px;
+    font-size: 12.5px;
+  }
+
+  .lyric-lines li {
+    padding: 2px 0;
+    line-height: 1.6;
+  }
+
+  .lyric-lines li.gap {
+    padding: 5px 0;
+  }
+
+  .lyrics-empty {
+    font-size: 12px;
   }
 }

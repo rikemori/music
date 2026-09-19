@@ -93,6 +93,7 @@ function App() {
   const [lyricsText, setLyricsText] = useState(null)
   const [previewing, setPreviewing] = useState(false)
   const [variantIds, setVariantIds] = useState({})
+  const [showLyrics, setShowLyrics] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -179,10 +180,18 @@ function App() {
         </div>
       </header>
 
-      <main className="workspace">
+      <main className={`workspace ${showLyrics ? '' : 'no-lyrics'}`}>
         <section className="score" aria-label="TAB譜">
           <div className="score-head">
             <h2>Tablature</h2>
+            <button
+              type="button"
+              className="lyrics-toggle"
+              aria-pressed={showLyrics}
+              onClick={() => setShowLyrics((shown) => !shown)}
+            >
+              歌詞 {showLyrics ? '隠す' : '表示'}
+            </button>
             <div className="switch" role="tablist" aria-label="楽器を切り替え">
               {SONG.instruments.map((instrument) => (
                 <button
@@ -242,24 +251,26 @@ function App() {
           </div>
         </section>
 
-        <aside className="lyrics" aria-label="歌詞">
-          <h2>Lyrics</h2>
-          <p className="lyrics-note">どの楽器のTAB譜を見ていても表示されます。</p>
-          {lyricLines.length > 0 ? (
-            <ol className="lyric-lines">
-              {lyricLines.map((line, i) =>
-                line ? <li key={i}>{line}</li> : <li key={i} className="gap" aria-hidden="true" />,
-              )}
-            </ol>
-          ) : (
-            <p className="lyrics-empty">
-              まだ歌詞がありません。
-              <br />
-              <br />
-              <code>public/tabs/</code> に歌詞の .txt（名前は自由）を置いて1行ずつ書くと、ここに表示されます。
-            </p>
-          )}
-        </aside>
+        {showLyrics && (
+          <aside className="lyrics" aria-label="歌詞">
+            <h2>Lyrics</h2>
+            <p className="lyrics-note">どの楽器のTAB譜を見ていても表示されます。</p>
+            {lyricLines.length > 0 ? (
+              <ol className="lyric-lines">
+                {lyricLines.map((line, i) =>
+                  line ? <li key={i}>{line}</li> : <li key={i} className="gap" aria-hidden="true" />,
+                )}
+              </ol>
+            ) : (
+              <p className="lyrics-empty">
+                まだ歌詞がありません。
+                <br />
+                <br />
+                <code>public/tabs/</code> に歌詞の .txt（名前は自由）を置いて1行ずつ書くと、ここに表示されます。
+              </p>
+            )}
+          </aside>
+        )}
       </main>
 
       <footer className="footer">
