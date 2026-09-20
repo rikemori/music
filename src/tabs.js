@@ -1,16 +1,16 @@
 import * as alphaTab from '@coderline/alphatab'
 import tabFilesInfo from 'virtual:tab-files'
 
-export const tabFileNames = tabFilesInfo.files
-export const lyricsFileName = tabFilesInfo.lyricsFile
-
 const publicUrl = (path) => `${import.meta.env.BASE_URL}${path}`
 
 const isHtml = (res) => (res.headers.get('content-type') || '').includes('text/html')
 
-export async function fetchTabFile(name) {
+// 曲のフォルダ（public/tabs/<slug>/）に置かれているTAB譜ファイルの名前
+export const getSongFiles = (slug) => tabFilesInfo[slug]?.files ?? []
+
+export async function fetchTabFile(slug, name) {
   try {
-    const res = await fetch(publicUrl(`tabs/${name}`))
+    const res = await fetch(publicUrl(`tabs/${slug}/${name}`))
     if (!res.ok || isHtml(res)) return null
     return { name, bytes: new Uint8Array(await res.arrayBuffer()) }
   } catch {
@@ -18,10 +18,11 @@ export async function fetchTabFile(name) {
   }
 }
 
-export async function fetchLyrics() {
-  if (!lyricsFileName) return null
+export async function fetchLyrics(slug) {
+  const name = tabFilesInfo[slug]?.lyricsFile
+  if (!name) return null
   try {
-    const res = await fetch(publicUrl(`tabs/${lyricsFileName}`))
+    const res = await fetch(publicUrl(`tabs/${slug}/${name}`))
     if (!res.ok || isHtml(res)) return null
     const text = (await res.text()).trim()
     return text || null

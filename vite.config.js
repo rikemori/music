@@ -6,18 +6,28 @@ import { defineConfig } from 'vite'
 
 const TAB_FILE_PATTERN = /\.(gp|gpx|gp5|gp4|gp3|musicxml|mxl|xml)$/i
 
-// public/tabs/ に置かれたTAB譜ファイルの一覧と、歌詞ファイル（.txt）の名前を、アプリから読めるようにする
+// public/tabs/<曲のフォルダ>/ に置かれたTAB譜ファイルの一覧と、歌詞ファイル（.txt）の名前を、アプリから読めるようにする
+//   virtual:tab-files  { <曲のフォルダ名>: { files: [...], lyricsFile: '...' | null }, ... }
 function tabFiles() {
   const virtualId = 'virtual:tab-files'
   const resolvedId = `\0${virtualId}`
   let tabsDir = ''
 
-  const names = () => (fs.existsSync(tabsDir) ? fs.readdirSync(tabsDir).sort() : [])
-  const listFiles = () => names().filter((name) => TAB_FILE_PATTERN.test(name))
-  // 名前は自由。README以外の .txt のうち、名前に lyric を含むものを優先する
-  const findLyricsFile = () => {
-    const texts = names().filter((name) => /\.txt$/i.test(name) && !/^readme/i.test(name))
+  // 歌詞は名前が自由。README以外の .txt のうち、名前に lyric を含むものを優先する
+  const findLyricsFile = (names) => {
+    const texts = names.filter((name) => /\.txt$/i.test(name) && !/^readme/i.test(name))
     return texts.find((name) => /lyric/i.test(name)) ?? texts[0] ?? null
+  }
+
+  const scanSongs = () => {
+    const songs = {}
+    if (!fs.existsSync(tabsDir)) return songs
+    for (const entry of fs.readdirSync(tabsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const names = fs.readdirSync(path.join(tabsDir, entry.name)).sort()
+      songs[entry.name] = { files: names.filter((name) => TAB_FILE_PATTERN.test(name)), lyricsFile: findLyricsFile(names) }
+    }
+    return songs
   }
 
   return {
@@ -29,7 +39,7 @@ function tabFiles() {
       if (id === virtualId) return resolvedId
     },
     load(id) {
-      if (id === resolvedId) return `export default ${JSON.stringify({ files: listFiles(), lyricsFile: findLyricsFile() })}`
+      if (id === resolvedId) return `export default ${JSON.stringify(scanSongs())}`
     },
     configureServer(server) {
       const refresh = (file) => {
@@ -41,6 +51,7 @@ function tabFiles() {
       server.watcher.on('add', refresh)
       server.watcher.on('change', refresh)
       server.watcher.on('unlink', refresh)
+      server.watcher.on('addDir', refresh)
     },
   }
 }

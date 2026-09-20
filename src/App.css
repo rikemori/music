@@ -4,6 +4,57 @@
   padding: 0 28px;
 }
 
+/* ---------- 曲の選択 ---------- */
+
+.song-picker {
+  display: flex;
+  gap: 8px;
+  padding: 20px 0 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.song-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.song-picker a {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  padding: 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--ink-soft);
+  line-height: 1.4;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.song-picker a strong {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.song-picker a span {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+}
+
+.song-picker a:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.song-picker a.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
 /* ---------- ヒーロー ---------- */
 
 .hero {
@@ -11,7 +62,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
   gap: 64px;
   align-items: center;
-  padding: 88px 0 72px;
+  padding: 56px 0 72px;
 }
 
 .eyebrow {
@@ -162,7 +213,15 @@
 
 /* ---------- ワークスペース ---------- */
 
+/* 動画と同期しているときは、ずれの調整の行が増えるので、その分TABの枠を低くする */
+.workspace.syncing {
+  --sync-extra: 44px;
+}
+
 .workspace {
+  /* 歌詞の枠の高さ。TABの枠は、これを引いた残りで一画面に収める */
+  --lyrics-max: 34svh;
+  --sync-extra: 0px;
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -171,7 +230,27 @@
 
 /* 音の多い小節が潰れないよう、TABには最低幅を確保する（足りない画面では枠の中で横スクロール） */
 .tab-host {
+  position: relative;
   min-width: 640px;
+}
+
+/* 動画の再生位置を示すカーソル */
+.tab-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px rgba(201, 70, 42, 0.18), 0 0 14px rgba(201, 70, 42, 0.55);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.tab-cursor[hidden] {
+  display: none;
 }
 
 .score-head {
@@ -294,7 +373,7 @@
 
 .paper {
   /* 歌詞・見出し・操作ボタンと合わせて、一画面に収まる高さにする */
-  height: clamp(300px, calc(100svh - 440px), 760px);
+  height: clamp(300px, calc(100svh - var(--lyrics-max) - 230px - var(--sync-extra)), 760px);
   padding: 28px 28px 20px;
   overflow: auto;
   overscroll-behavior: contain;
@@ -345,6 +424,77 @@
 .scroll-toggle:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.sync-toggle {
+  padding: 7px 20px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sync-toggle:hover:not(:disabled),
+.sync-toggle[aria-pressed='true'] {
+  background: var(--accent);
+  color: #fff;
+}
+
+.sync-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sync-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.sync-bar output {
+  min-width: 3.6em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.sync-bar button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sync-bar button:hover {
+  border-color: var(--ink);
+}
+
+.sync-nudge {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.follow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.follow-toggle input {
+  accent-color: var(--accent);
 }
 
 .scroll-speed {
@@ -485,7 +635,7 @@ label input[type='file'] {
 /* ---------- 歌詞 ---------- */
 
 .lyrics {
-  max-height: 22svh;
+  max-height: var(--lyrics-max);
   overflow-y: auto;
   padding: 18px 26px 20px;
   border: 1px solid var(--line);
@@ -520,7 +670,7 @@ label input[type='file'] {
   font-family: var(--serif);
   font-size: 15px;
   column-gap: 32px;
-  columns: 3;
+  columns: 2;
 }
 
 .lyric-lines li {
@@ -560,11 +710,15 @@ label input[type='file'] {
   .hero {
     grid-template-columns: 1fr;
     gap: 40px;
-    padding: 56px 0 48px;
+    padding: 40px 0 48px;
   }
 
-  .lyric-lines {
-    columns: 2;
+  .workspace {
+    --lyrics-max: 30svh;
+  }
+
+  .paper {
+    height: clamp(300px, calc(100svh - var(--lyrics-max) - 250px - var(--sync-extra)), 760px);
   }
 }
 
@@ -574,11 +728,16 @@ label input[type='file'] {
   }
 
   .workspace {
+    --lyrics-max: 30svh;
     gap: 16px;
   }
 
+  .workspace.syncing {
+    --lyrics-max: 24svh;
+    --sync-extra: 64px;
+  }
+
   .lyrics {
-    max-height: 20svh;
     padding: 12px 14px 14px;
     border-radius: 14px;
   }
@@ -597,7 +756,7 @@ label input[type='file'] {
   }
 
   .paper {
-    height: clamp(240px, calc(100svh - 425px), 560px);
+    height: clamp(180px, calc(100svh - var(--lyrics-max) - 255px - var(--sync-extra)), 560px);
     padding: 12px 8px 10px;
     border-radius: 14px;
   }
@@ -610,15 +769,241 @@ label input[type='file'] {
     gap: 20px;
   }
 
+  .hero {
+    gap: 28px;
+    padding: 28px 0 36px;
+  }
+
   .scroll-hint {
     display: none;
   }
 
-  .zoom-controls .zoom-hint {
-    display: inline;
+  /* スマホでは、操作ボタンを小さくまとめて、TABの枠を広く残す */
+  .scroll-bar {
+    gap: 6px 8px;
+    margin-bottom: 8px;
+  }
+
+  .scroll-toggle,
+  .sync-toggle {
+    padding: 6px 14px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+
+  .scroll-speed {
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .scroll-speed input {
+    width: 72px;
+  }
+
+  .scroll-speed output {
+    min-width: 1.8em;
+  }
+
+  .zoom-controls {
+    gap: 2px;
+  }
+
+  .zoom-controls button {
+    min-width: 30px;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
+  .zoom-controls .zoom-fit {
+    margin-left: 2px;
+    font-size: 11px;
+  }
+
+  .zoom-controls output {
+    min-width: 2.8em;
+    font-size: 11px;
+  }
+
+  .sync-bar {
+    gap: 4px 6px;
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+
+  .sync-bar button {
+    height: 26px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .sync-bar output {
+    min-width: 3.2em;
+  }
+
+  .sync-nudge {
+    gap: 2px;
   }
 
   .scroll-speed input {
     width: 96px;
   }
+}
+
+/* ---------- スタイルの仕上げ ---------- */
+
+.page {
+  --mono: ui-monospace, 'SF Mono', 'Menlo', monospace;
+  animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page {
+    animation: none;
+  }
+}
+
+/* 曲の選択：番号つきのタブ。選んだ曲の色が下線になる */
+.song-picker {
+  gap: 0;
+  padding: 18px 0 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.song-picker a {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  align-items: baseline;
+  padding: 10px 22px 12px 0;
+  margin-right: 8px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--ink-soft);
+}
+
+.song-picker a em {
+  grid-row: 1 / 3;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.song-picker a::after {
+  content: '';
+  position: absolute;
+  right: 22px;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.song-picker a.active {
+  background: none;
+  color: var(--ink);
+}
+
+.song-picker a.active::after {
+  transform: scaleX(1);
+}
+
+.song-picker a.active em {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.song-picker a:hover {
+  border: none;
+}
+
+/* ヒーロー：大きく、余白をたっぷり */
+.hero {
+  padding: 48px 0 64px;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.28em;
+}
+
+.hero h1 {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.artist {
+  border-top: none;
+  padding-top: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+}
+
+.btn {
+  padding: 12px 26px;
+  border-radius: 10px;
+  font-size: 13px;
+  transition: transform 0.2s ease, background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.hero-media {
+  border-radius: 14px;
+  box-shadow: 0 30px 60px -28px color-mix(in srgb, var(--accent) 55%, #111), 0 2px 0 rgba(255, 255, 255, 0.6) inset;
+}
+
+.hero-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+/* 背景：淡い方眼の紙 */
+body {
+  background:
+    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--accent, #c9462a) 9%, transparent) 0, transparent 46%),
+    linear-gradient(rgba(31, 30, 27, 0.028) 1px, transparent 1px) 0 0 / 100% 28px,
+    var(--bg);
+}
+
+@media (max-width: 560px) {
+  .song-picker a {
+    padding-right: 16px;
+    margin-right: 4px;
+  }
+
+  .song-picker a::after {
+    right: 16px;
+  }
+
+  .hero {
+    padding: 32px 0 44px;
+  }
+}
+
+.paper {
+  border-radius: 14px;
 }
