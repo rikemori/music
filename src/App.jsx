@@ -13,6 +13,23 @@ import {
 import TabViewer from './TabViewer'
 import './App.css'
 
+const ZOOM_KEY = 'music:tabZoom'
+const ZOOM_MIN = 0.3
+const ZOOM_MAX = 4
+const clampZoom = (value) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value))
+const nowMs = () => performance.now()
+
+// 前回の拡大率。なければ、スマホでは画面の幅に合わせた大きさ、PCでは等倍にする
+function initialZoom() {
+  try {
+    const saved = Number(localStorage.getItem(ZOOM_KEY))
+    if (saved >= ZOOM_MIN && saved <= ZOOM_MAX) return saved
+  } catch {
+    // 読めなければ既定値を使う
+  }
+  return window.innerWidth <= 560 ? clampZoom((window.innerWidth - 40) / 640) : 1
+}
+
 const FILE_ACCEPT = '.gp,.gpx,.gp5,.gp4,.gp3,.musicxml,.mxl,.xml'
 
 function readyState(score, indexes, fileName) {
@@ -98,6 +115,11 @@ function App() {
   const [scrollSpeed, setScrollSpeed] = useState(60)
   const speedRef = useRef(60)
   const paperRef = useRef(null)
+  const [zoom, setZoom] = useState(initialZoom)
+  const zoomRef = useRef(zoom)
+  const pinchEndRef = useRef(0)
+  const zoomGestureRef = useRef(false)
+  const wheelTimerRef = useRef(0)
   const workspaceRef = useRef(null)
 
   useEffect(() => {
@@ -153,7 +175,7 @@ function App() {
       const elapsed = (now - last) / 1000
       last = now
       if (Math.abs(el.scrollTop - position) > 2) position = el.scrollTop // 指で動かされたら、その位置から続ける
-      position += speedRef.current * elapsed
+      position += speedRef.current * zoomRef.current * elapsed
       el.scrollTop = position
       const maxScroll = el.scrollHeight - el.clientHeight
       if (maxScroll > 50 && el.scrollTop >= maxScroll - 1) {
@@ -166,7 +188,119 @@ function App() {
     return () => cancelAnimationFrame(frame)
   }, [autoScroll])
 
+  // 拡大率を変える。指の位置（cx, cy）にある場所が、動かないように位置を合わせる。
+  // live のとき（ピンチ中）は、画面の更新（React・TABの再描画）を後回しにして、動きを軽くする
+  const applyZoom = (next, cx, cy, live = false) => {
+    const el = paperRef.current
+    const value = clampZoom(next)
+    const ratio = value / zoomRef.current
+    zoomRef.current = value
+    if (!live) setZoom(value)
+    if (!el) return
+    const host = el.querySelector('.tab-host')
+    if (host) host.style.zoom = value
+    el.scrollLeft = (el.scrollLeft + cx) * ratio - cx
+    el.scrollTop = (el.scrollTop + cy) * ratio - cy
+  }
+
+  // ピンチの間は、TABの幅を固定してレイアウトのやり直しを防ぎ、終わったときに1回だけ整える
+  const beginZoomGesture = () => {
+    const host = paperRef.current?.querySelector('.tab-host')
+    if (!host || zoomGestureRef.current) return
+    zoomGestureRef.current = true
+    host.style.width = `${host.clientWidth}px`
+  }
+
+  const endZoomGesture = () => {
+    if (!zoomGestureRef.current) return
+    zoomGestureRef.current = false
+    const host = paperRef.current?.querySelector('.tab-host')
+    if (host) host.style.width = ''
+    setZoom(zoomRef.current)
+  }
+
+  const zoomBy = (factor) => {
+    const el = paperRef.current
+    if (el) applyZoom(zoomRef.current * factor, el.clientWidth / 2, el.clientHeight / 2)
+  }
+
+  // TABの幅がちょうど枠に収まる大きさにする
+  const fitZoom = () => {
+    const el = paperRef.current
+    const host = el?.querySelector('.tab-host')
+    if (!el || !host) return
+    const style = getComputedStyle(el)
+    const available = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+    applyZoom(available / parseFloat(getComputedStyle(host).minWidth), 0, 0)
+    el.scrollLeft = 0
+  }
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ZOOM_KEY, String(zoom))
+    } catch {
+      // 保存できない環境では、今回だけの設定になる
+    }
+  }, [zoom])
+
+  // ピンチ（2本指）と、Ctrl+ホイール／トラックパッドのピンチで拡大縮小する
+  useEffect(() => {
+    const el = paperRef.current
+    if (!el) return
+
+    const distance = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+    const center = (t) => {
+      const rect = el.getBoundingClientRect()
+      return { x: (t[0].clientX + t[1].clientX) / 2 - rect.left, y: (t[0].clientY + t[1].clientY) / 2 - rect.top }
+    }
+
+    let pinch = null
+    const onTouchStart = (e) => {
+      if (e.touches.length !== 2) return
+      pinch = { distance: distance(e.touches), zoom: zoomRef.current }
+      beginZoomGesture()
+    }
+    const onTouchMove = (e) => {
+      if (!pinch || e.touches.length !== 2) return
+      e.preventDefault()
+      const c = center(e.touches)
+      applyZoom(pinch.zoom * (distance(e.touches) / pinch.distance), c.x, c.y, true)
+    }
+    const onTouchEnd = (e) => {
+      if (pinch && e.touches.length < 2) {
+        pinch = null
+        pinchEndRef.current = nowMs()
+        endZoomGesture()
+      }
+    }
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      beginZoomGesture()
+      const rect = el.getBoundingClientRect()
+      applyZoom(zoomRef.current * Math.exp(-e.deltaY * 0.01), e.clientX - rect.left, e.clientY - rect.top, true)
+      clearTimeout(wheelTimerRef.current)
+      wheelTimerRef.current = setTimeout(endZoomGesture, 180)
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('touchcancel', onTouchEnd)
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchEnd)
+      el.removeEventListener('wheel', onWheel)
+      clearTimeout(wheelTimerRef.current)
+    }
+    // applyZoom は最新の状態を参照する参照（ref）と setState だけを使うので、付け替えは不要
+  }, [])
+
   const toggleAutoScroll = () => {
+    if (nowMs() - pinchEndRef.current < 400) return // ピンチの直後に、誤って開始・停止しない
     if (autoScroll) {
       setAutoScroll(false)
       return
@@ -328,7 +462,20 @@ function App() {
               />
               <output>{scrollSpeed}</output>
             </label>
-            <span className="scroll-hint">TAB譜をタップしても、始まる・止まります</span>
+            <div className="zoom-controls" role="group" aria-label="TAB譜の拡大縮小">
+              <button type="button" onClick={() => zoomBy(1 / 1.2)} aria-label="縮小">
+                －
+              </button>
+              <output aria-live="polite">{Math.round(zoom * 100)}%</output>
+              <button type="button" onClick={() => zoomBy(1.2)} aria-label="拡大">
+                ＋
+              </button>
+              <button type="button" className="zoom-fit" onClick={fitZoom}>
+                フィット
+              </button>
+              <span className="zoom-hint">ピンチで拡大縮小</span>
+            </div>
+            <span className="scroll-hint">TAB譜をタップで自動スクロール／2本指で拡大縮小</span>
           </div>
 
           <div
@@ -344,6 +491,7 @@ function App() {
                   score={active.score}
                   trackIndexes={variant.indexes}
                   kind={activeInstrument.kind}
+                  zoom={zoom}
                 />
                 <div className="file-note" onClick={(e) => e.stopPropagation()}>
                   <span>

@@ -20,17 +20,13 @@ const SETTINGS = {
   player: { enablePlayer: false },
 }
 
-function TabViewer({ score, trackIndexes, kind }) {
+function TabViewer({ score, trackIndexes, kind, zoom }) {
   const hostRef = useRef(null)
   const apiRef = useRef(null)
   const [busy, setBusy] = useState(true)
 
   useEffect(() => {
-    const isPhone = window.matchMedia('(max-width: 560px)').matches
-    const api = new alphaTab.AlphaTabApi(hostRef.current, {
-      ...SETTINGS,
-      display: { ...SETTINGS.display, scale: isPhone ? 0.8 : SETTINGS.display.scale },
-    })
+    const api = new alphaTab.AlphaTabApi(hostRef.current, SETTINGS)
     api.renderStarted.on(() => setBusy(true))
     api.renderFinished.on(() => setBusy(false))
     apiRef.current = api
@@ -50,7 +46,7 @@ function TabViewer({ score, trackIndexes, kind }) {
   return (
     <div className="tab-view">
       {busy && <p className="tab-busy">TAB譜を描画しています…</p>}
-      <div className="tab-host" ref={hostRef} />
+      <div className="tab-host" ref={hostRef} style={{ zoom }} />
     </div>
   )
 }
