@@ -163,10 +163,10 @@
 /* ---------- ワークスペース ---------- */
 
 .workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 32px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  scroll-margin-top: 12px;
 }
 
 /* 音の多い小節が潰れないよう、TABには最低幅を確保する（足りない画面では枠の中で横スクロール） */
@@ -195,14 +195,21 @@
   letter-spacing: 0.02em;
 }
 
+.score-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 6px;
+}
+
 .switch {
   display: flex;
   gap: 28px;
 }
 
-/* 歌詞の表示／非表示ボタン（狭い画面でTABを広く見たいとき用。広い画面では出さない） */
+/* 歌詞の表示／非表示ボタン */
 .lyrics-toggle {
-  display: none;
+  display: inline-block;
   padding: 4px 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -286,13 +293,80 @@
 }
 
 .paper {
-  min-height: 320px;
+  /* 歌詞・見出し・操作ボタンと合わせて、一画面に収まる高さにする */
+  height: clamp(300px, calc(100svh - 440px), 760px);
   padding: 28px 28px 20px;
-  overflow-x: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-tap-highlight-color: transparent;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--surface);
   box-shadow: 0 30px 60px -36px rgba(31, 30, 27, 0.3);
+}
+
+.paper.tappable {
+  cursor: pointer;
+}
+
+/* 自動スクロールの操作 */
+.scroll-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.scroll-toggle {
+  padding: 7px 20px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.scroll-toggle:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.scroll-toggle[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.scroll-toggle:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.scroll-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.scroll-speed input {
+  width: 120px;
+  accent-color: var(--ink);
+}
+
+.scroll-speed output {
+  min-width: 2.2em;
+  font-variant-numeric: tabular-nums;
+}
+
+.scroll-hint {
+  font-size: 11px;
+  color: var(--ink-soft);
 }
 
 .loading,
@@ -366,24 +440,30 @@ label input[type='file'] {
 /* ---------- 歌詞 ---------- */
 
 .lyrics {
-  position: sticky;
-  top: 20px;
-  max-height: calc(100svh - 40px);
+  max-height: 22svh;
   overflow-y: auto;
-  padding: 24px 26px 28px;
+  padding: 18px 26px 20px;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--surface);
   box-shadow: 0 30px 60px -36px rgba(31, 30, 27, 0.3);
 }
 
-.lyrics h2 {
-  padding-bottom: 8px;
+.lyrics-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--line);
 }
 
+.lyrics h2 {
+  font-size: 28px;
+}
+
 .lyrics-note {
-  margin: 12px 0 14px;
+  margin: 0;
   font-size: 12px;
   color: var(--ink-soft);
 }
@@ -393,16 +473,19 @@ label input[type='file'] {
   padding: 0;
   list-style: none;
   font-family: var(--serif);
-  font-size: 15.5px;
+  font-size: 15px;
+  column-gap: 32px;
+  columns: 3;
 }
 
 .lyric-lines li {
-  padding: 4px 0;
-  line-height: 1.8;
+  padding: 2px 0;
+  line-height: 1.7;
+  break-inside: avoid;
 }
 
 .lyric-lines li.gap {
-  padding: 8px 0;
+  padding: 6px 0;
 }
 
 .lyrics-empty {
@@ -435,19 +518,8 @@ label input[type='file'] {
     padding: 56px 0 48px;
   }
 
-  /* 歌詞は画面が狭くても、TABの右横に置く */
-  .workspace {
-    grid-template-columns: minmax(0, 1fr) clamp(110px, 24vw, 240px);
-    gap: 16px;
-  }
-
-  .workspace.no-lyrics {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .lyrics-toggle {
-    display: inline-block;
-    order: 2;
+  .lyric-lines {
+    columns: 2;
   }
 }
 
@@ -457,36 +529,16 @@ label input[type='file'] {
   }
 
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 112px;
-    gap: 10px;
-  }
-
-  .workspace.no-lyrics {
-    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
   }
 
   .tab-host {
     min-width: 560px;
   }
 
-  .paper {
-    min-height: 240px;
-    padding: 12px 8px 10px;
-    border-radius: 14px;
-  }
-
-  .score h2 {
-    font-size: 28px;
-  }
-
-  .switch {
-    gap: 20px;
-  }
-
   .lyrics {
-    top: 12px;
-    max-height: calc(100svh - 24px);
-    padding: 12px 12px 14px;
+    max-height: 20svh;
+    padding: 12px 14px 14px;
     border-radius: 14px;
   }
 
@@ -499,20 +551,29 @@ label input[type='file'] {
   }
 
   .lyric-lines {
-    margin-top: 10px;
-    font-size: 12.5px;
+    columns: 1;
+    font-size: 14px;
   }
 
-  .lyric-lines li {
-    padding: 2px 0;
-    line-height: 1.6;
+  .paper {
+    height: clamp(240px, calc(100svh - 390px), 560px);
+    padding: 12px 8px 10px;
+    border-radius: 14px;
   }
 
-  .lyric-lines li.gap {
-    padding: 5px 0;
+  .score h2 {
+    font-size: 28px;
   }
 
-  .lyrics-empty {
-    font-size: 12px;
+  .switch {
+    gap: 20px;
+  }
+
+  .scroll-hint {
+    display: none;
+  }
+
+  .scroll-speed input {
+    width: 96px;
   }
 }

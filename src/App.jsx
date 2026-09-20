@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SONG, embedUrl, thumbnailUrl, youtabsUrl, youtubeUrl } from './songs'
 import {
   buildVariants,
@@ -94,6 +94,11 @@ function App() {
   const [previewing, setPreviewing] = useState(false)
   const [variantIds, setVariantIds] = useState({})
   const [showLyrics, setShowLyrics] = useState(true)
+  const [autoScroll, setAutoScroll] = useState(false)
+  const [scrollSpeed, setScrollSpeed] = useState(60)
+  const speedRef = useRef(60)
+  const paperRef = useRef(null)
+  const workspaceRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -134,6 +139,53 @@ function App() {
     }
     return []
   }, [lyricsText, tabs])
+
+  // TABの枠を一定の速さで下へ流す（枠の下端まで来たら止まる）
+  useEffect(() => {
+    if (!autoScroll) return
+    const el = paperRef.current
+    if (!el) return
+
+    let frame
+    let last = performance.now()
+    let position = el.scrollTop
+    const tick = (now) => {
+      const elapsed = (now - last) / 1000
+      last = now
+      if (Math.abs(el.scrollTop - position) > 2) position = el.scrollTop // 指で動かされたら、その位置から続ける
+      position += speedRef.current * elapsed
+      el.scrollTop = position
+      const maxScroll = el.scrollHeight - el.clientHeight
+      if (maxScroll > 50 && el.scrollTop >= maxScroll - 1) {
+        setAutoScroll(false)
+        return
+      }
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [autoScroll])
+
+  const toggleAutoScroll = () => {
+    if (autoScroll) {
+      setAutoScroll(false)
+      return
+    }
+    setAutoScroll(true)
+    // 歌詞とTABが一画面に収まる位置に合わせる
+    workspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const changeSpeed = (value) => {
+    speedRef.current = value
+    setScrollSpeed(value)
+  }
+
+  // 楽器・パートを変えたら、自動スクロールは止めて先頭に戻す
+  const resetScroll = () => {
+    setAutoScroll(false)
+    if (paperRef.current) paperRef.current.scrollTop = 0
+  }
 
   const activeInstrument = SONG.instruments.find((i) => i.id === activeId)
   const active = tabs[activeId]
@@ -180,81 +232,13 @@ function App() {
         </div>
       </header>
 
-      <main className={`workspace ${showLyrics ? '' : 'no-lyrics'}`}>
-        <section className="score" aria-label="TAB譜">
-          <div className="score-head">
-            <h2>Tablature</h2>
-            <button
-              type="button"
-              className="lyrics-toggle"
-              aria-pressed={showLyrics}
-              onClick={() => setShowLyrics((shown) => !shown)}
-            >
-              歌詞 {showLyrics ? '隠す' : '表示'}
-            </button>
-            <div className="switch" role="tablist" aria-label="楽器を切り替え">
-              {SONG.instruments.map((instrument) => (
-                <button
-                  key={instrument.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={instrument.id === activeId}
-                  className={instrument.id === activeId ? 'active' : ''}
-                  onClick={() => setActiveId(instrument.id)}
-                >
-                  {instrument.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {active.status === 'ready' && active.variants.length > 1 && (
-            <div className="variants" role="group" aria-label={`${activeInstrument.label}のパート`}>
-              {active.variants.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  className={v.id === variant.id ? 'active' : ''}
-                  onClick={() => setVariantIds((prev) => ({ ...prev, [activeId]: v.id }))}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="paper">
-            {active.status === 'loading' && <p className="loading">読み込み中…</p>}
-            {active.status === 'ready' && (
-              <>
-                <TabViewer
-                  key={activeId}
-                  score={active.score}
-                  trackIndexes={variant.indexes}
-                  kind={activeInstrument.kind}
-                />
-                <div className="file-note">
-                  <span>
-                    {active.fileName}
-                    {variant.label && `・${variant.label}`}
-                    {autoTab && <em>弦・フレットは音の高さから自動で割り当てています（この形式には弦の情報がないため）</em>}
-                  </span>
-                  <FilePicker className="file-link" onPick={(file) => handlePick(activeInstrument, file)}>
-                    別のファイルを読み込む
-                  </FilePicker>
-                </div>
-              </>
-            )}
-            {['missing', 'noTrack', 'error'].includes(active.status) && (
-              <EmptyState instrument={activeInstrument} state={active} onPick={(file) => handlePick(activeInstrument, file)} />
-            )}
-          </div>
-        </section>
-
+      <main className="workspace" ref={workspaceRef}>
         {showLyrics && (
           <aside className="lyrics" aria-label="歌詞">
-            <h2>Lyrics</h2>
-            <p className="lyrics-note">どの楽器のTAB譜を見ていても表示されます。</p>
+            <div className="lyrics-head">
+              <h2>Lyrics</h2>
+              <p className="lyrics-note">どの楽器のTAB譜を見ていても表示されます。</p>
+            </div>
             {lyricLines.length > 0 ? (
               <ol className="lyric-lines">
                 {lyricLines.map((line, i) =>
@@ -271,6 +255,113 @@ function App() {
             )}
           </aside>
         )}
+        <section className="score" aria-label="TAB譜">
+          <div className="score-head">
+            <div className="score-title">
+              <h2>Tablature</h2>
+              <button
+                type="button"
+                className="lyrics-toggle"
+                aria-pressed={showLyrics}
+                onClick={() => setShowLyrics((shown) => !shown)}
+              >
+                歌詞 {showLyrics ? '隠す' : '表示'}
+              </button>
+            </div>
+            <div className="switch" role="tablist" aria-label="楽器を切り替え">
+              {SONG.instruments.map((instrument) => (
+                <button
+                  key={instrument.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={instrument.id === activeId}
+                  className={instrument.id === activeId ? 'active' : ''}
+                  onClick={() => {
+                    resetScroll()
+                    setActiveId(instrument.id)
+                  }}
+                >
+                  {instrument.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {active.status === 'ready' && active.variants.length > 1 && (
+            <div className="variants" role="group" aria-label={`${activeInstrument.label}のパート`}>
+              {active.variants.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  className={v.id === variant.id ? 'active' : ''}
+                  onClick={() => {
+                    resetScroll()
+                    setVariantIds((prev) => ({ ...prev, [activeId]: v.id }))
+                  }}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="scroll-bar">
+            <button
+              type="button"
+              className="scroll-toggle"
+              aria-pressed={autoScroll}
+              onClick={toggleAutoScroll}
+              disabled={active.status !== 'ready'}
+            >
+              {autoScroll ? '■ 停止' : '▶ 自動スクロール'}
+            </button>
+            <label className="scroll-speed">
+              <span>速さ</span>
+              <input
+                type="range"
+                min="10"
+                max="200"
+                step="5"
+                value={scrollSpeed}
+                onChange={(e) => changeSpeed(Number(e.target.value))}
+                aria-label="自動スクロールの速さ"
+              />
+              <output>{scrollSpeed}</output>
+            </label>
+            <span className="scroll-hint">TAB譜をタップしても、始まる・止まります</span>
+          </div>
+
+          <div
+            className={`paper ${active.status === 'ready' ? 'tappable' : ''}`}
+            ref={paperRef}
+            onClick={active.status === 'ready' ? toggleAutoScroll : undefined}
+          >
+            {active.status === 'loading' && <p className="loading">読み込み中…</p>}
+            {active.status === 'ready' && (
+              <>
+                <TabViewer
+                  key={activeId}
+                  score={active.score}
+                  trackIndexes={variant.indexes}
+                  kind={activeInstrument.kind}
+                />
+                <div className="file-note" onClick={(e) => e.stopPropagation()}>
+                  <span>
+                    {active.fileName}
+                    {variant.label && `・${variant.label}`}
+                    {autoTab && <em>弦・フレットは音の高さから自動で割り当てています（この形式には弦の情報がないため）</em>}
+                  </span>
+                  <FilePicker className="file-link" onPick={(file) => handlePick(activeInstrument, file)}>
+                    別のファイルを読み込む
+                  </FilePicker>
+                </div>
+              </>
+            )}
+            {['missing', 'noTrack', 'error'].includes(active.status) && (
+              <EmptyState instrument={activeInstrument} state={active} onPick={(file) => handlePick(activeInstrument, file)} />
+            )}
+          </div>
+        </section>
       </main>
 
       <footer className="footer">
